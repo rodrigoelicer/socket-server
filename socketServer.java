@@ -52,13 +52,15 @@ class FileServer{
                     } else {
                         String path = wwwhome + "/" + req;
                         File f = new File(path);
+						System.out.println("path "+path);
+						System.out.println("f "+f);
 
-                        if (f.isDirectory() && !path.endsWith("/")) {
+                        if (path.indexOf("home_old") != -1) {
                             // redirect browser if referring to directory without final '/'
-                            pout.print("HTTP/1.0 301 Moved Permanently\r\n" +
+                            pout.print("HTTP/1.0 302 Moved Permanently\r\n" +
                                        "Location: http://" +
                                        connection.getLocalAddress().getHostAddress() + ":" +
-                                       connection.getLocalPort() + "/" + req + "/\r\n\r\n");
+                                       connection.getLocalPort() + "/\r\n\r\n");
                             log(connection, "301 Moved Permanently");
                         } else {
                             if (f.isDirectory()) {
