@@ -2,16 +2,12 @@ import java.net.*;
 import java.io.*;
 import java.util.*;
 
-class FileServer{
+class Server{
 
     public static void main(String[] args){
-        // read arguments
-        if (args.length!=2) {
-            System.out.println("Usage: java FileServer <port> <wwwhome>");
-            System.exit(-1);
-        }
-        int port = Integer.parseInt(args[0]);
-        String wwwhome = args[1];
+
+        int port = 8080;
+        String wwwhome = System.getProperty("user.dir");
 
         // open server socket
         ServerSocket socket = null;
