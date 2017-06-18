@@ -9,25 +9,26 @@ class Server{
         int port = 8080;
         String wwwhome = System.getProperty("user.dir");
 
-        // open server socket
         ServerSocket socket = null;
         try {
+			//Crea el socket en el puerto 8080
             socket = new ServerSocket(port);
         } catch (IOException e) {
             System.err.println("Could not start server: " + e);
             System.exit(-1);
         }
-
 		System.out.println("FileServer accepting connections on port " + port);
+
 		int id=0;
         while (true) {
+			//Por cada conexion, se crea un thread distinto
             Socket connection = null;
-            // wait for request
 			try{
 				connection = socket.accept();
 				ClientServiceThread cliThread = new ClientServiceThread(connection, id++, port, wwwhome);
 	            cliThread.start();
-			} catch (Exception e) {
+			}
+			catch (Exception e) {
             	System.out.println(e.getMessage());
         	}
         }
@@ -54,7 +55,8 @@ class ClientServiceThread extends Thread {
 			OutputStream out = new BufferedOutputStream(connection.getOutputStream());
 			PrintStream pout = new PrintStream(out);
 
-			// read first line of request (ignore the rest)
+			//Formato -> 	GET / HTTP/1.1
+			//				POST /form_submited.html HTTP/1.1
 			String request = in.readLine();
 
 			// parse the line
@@ -105,9 +107,10 @@ class ClientServiceThread extends Thread {
 										"The requested URL was not found on this server.");
 						}
 					}
-					pout.close();
+
 				}
 			}
+			pout.close();
 			connection.close();
 			//out.flush();
 		} catch (IOException e) { System.err.println(e); }
