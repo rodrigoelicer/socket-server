@@ -17,79 +17,103 @@ class Server{
             System.err.println("Could not start server: " + e);
             System.exit(-1);
         }
-        System.out.println("FileServer accepting connections on port " + port);
-        // request handler loop
+
+		System.out.println("FileServer accepting connections on port " + port);
+		int id=0;
         while (true) {
             Socket connection = null;
-            try {
-                // wait for request
-                connection = socket.accept();
-                BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-                OutputStream out = new BufferedOutputStream(connection.getOutputStream());
-                PrintStream pout = new PrintStream(out);
-
-                // read first line of request (ignore the rest)
-                String request = in.readLine();
-
-				// parse the line
-                if (!request.startsWith("GET") || request.length()<14 ||
-                    !(request.endsWith("HTTP/1.0") || request.endsWith("HTTP/1.1"))) {
-                    // bad request
-                    errorReport(pout, connection, "400", "Bad Request",
-                                "Your browser sent a request that " +
-                                "this server could not understand.");
-                } else {
-                    String req = request.substring(4, request.length()-9).trim();
-
-                    if (req.indexOf("secret")!=-1 ) {
-                        // evil hacker trying to read non-wwwhome or secret file
-                        errorReport(pout, connection, "403", "Forbidden",
-                                    "You don't have permission to access the requested URL.");
-                    } else {
-                        String path = wwwhome + req;
-                        File f = new File(path);
-						System.out.println("path "+path);
-						System.out.println("f "+f);
-
-                        if (path.indexOf("home_old") != -1) {
-                            // redirect browser if referring to directory without final '/'
-                            pout.print("HTTP/1.0 302 Moved Permanently\r\n" +
-                                       "Location: http://" +
-                                       connection.getLocalAddress().getHostAddress() + ":" +
-                                       connection.getLocalPort() + "/\r\n\r\n");
-                            log(connection, "301 Moved Permanently");
-                        } else {
-                            if (f.isDirectory()) {
-                                // if directory, implicitly add 'home.html'
-                                path = path + "home.html";
-                                f = new File(path);
-                            }
-                            try {
-                                // send file
-                                InputStream file = new FileInputStream(f);
-                                pout.print("HTTP/1.0 200 OK\r\n" +
-                                           "Content-Type: " + guessContentType(path) + "\r\n" +
-                                           "Date: " + new Date() + "\r\n" +
-                                           "Server: FileServer 1.0\r\n\r\n");
-                                sendFile(file, out); // send raw file
-                                log(connection, "200 OK");
-                            } catch (FileNotFoundException e) {
-                                // file not found
-                                errorReport(pout, connection, "404", "Not Found",
-                                            "The requested URL was not found on this server.");
-                            }
-                        }
-                    }
-                }
-                out.flush();
-            } catch (IOException e) { System.err.println(e); }
-            try {
-                if (connection != null) connection.close();
-            } catch (IOException e) { System.err.println(e); }
+            // wait for request
+			try{
+				connection = socket.accept();
+				ClientServiceThread cliThread = new ClientServiceThread(connection, id++, port, wwwhome);
+	            cliThread.start();
+			} catch (Exception e) {
+            	System.out.println(e.getMessage());
+        	}
         }
     }
+}
 
- 	private static void log(Socket connection, String msg){
+class ClientServiceThread extends Thread {
+	Socket connection;
+	int clientID = -1;
+	int port;
+	String wwwhome;
+
+	ClientServiceThread(Socket s, int i, int p, String w) {
+		connection = s;
+		clientID = i;
+		port = p;
+		wwwhome = w;
+	}
+
+	public void run() {
+		try{
+			System.out.println("Cliente en línea, ID: "+clientID);
+			BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+			OutputStream out = new BufferedOutputStream(connection.getOutputStream());
+			PrintStream pout = new PrintStream(out);
+
+			// read first line of request (ignore the rest)
+			String request = in.readLine();
+
+			// parse the line
+			if (!request.startsWith("GET") || request.length()<14 ||
+				!(request.endsWith("HTTP/1.0") || request.endsWith("HTTP/1.1"))) {
+				// bad request
+				errorReport(pout, connection, "400", "Bad Request",
+							"Your browser sent a request that " +
+							"this server could not understand.");
+			} else {
+				String req = request.substring(4, request.length()-9).trim();
+
+				if (req.indexOf("secret")!=-1 ) {
+					// evil hacker trying to read non-wwwhome or secret file
+					errorReport(pout, connection, "403", "Forbidden",
+								"You don't have permission to access the requested URL.");
+				} else {
+					String path = wwwhome + req;
+					File f = new File(path);
+					System.out.println("path "+path);
+					System.out.println("f "+f);
+
+					if (path.indexOf("home_old") != -1) {
+						// redirect browser if referring to directory without final '/'
+						pout.print("HTTP/1.0 302 Moved Permanently\r\n" +
+								   "Location: http://" +
+								   connection.getLocalAddress().getHostAddress() + ":" +
+								   connection.getLocalPort() + "/\r\n\r\n");
+						log(connection, "301 Moved Permanently");
+					} else {
+						if (f.isDirectory()) {
+							// if directory, implicitly add 'home.html'
+							path = path + "home.html";
+							f = new File(path);
+						}
+						try {
+							// send file
+							InputStream file = new FileInputStream(f);
+							pout.print("HTTP/1.0 200 OK\r\n" +
+									   "Content-Type: " + guessContentType(path) + "\r\n" +
+									   "Date: " + new Date() + "\r\n" +
+									   "Server: FileServer 1.0\r\n\r\n");
+							sendFile(file, out); // send raw file
+							log(connection, "200 OK");
+						} catch (FileNotFoundException e) {
+							// file not found
+							errorReport(pout, connection, "404", "Not Found",
+										"The requested URL was not found on this server.");
+						}
+					}
+					pout.close();
+				}
+			}
+			connection.close();
+			//out.flush();
+		} catch (IOException e) { System.err.println(e); }
+	}
+
+	private static void log(Socket connection, String msg){
         System.err.println(new Date() + " [" + connection.getInetAddress().getHostAddress() +
             ":" + connection.getPort() + "] " + msg);
     }
