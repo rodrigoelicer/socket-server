@@ -105,9 +105,11 @@ class ClientServiceThread extends Thread {
 										"The requested URL was not found on this server.");
 						}
 					}
+					pout.close();
 				}
 			}
-			out.flush();
+			connection.close();
+			//out.flush();
 		} catch (IOException e) { System.err.println(e); }
 	}
 
