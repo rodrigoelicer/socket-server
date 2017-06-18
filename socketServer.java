@@ -58,7 +58,6 @@ class ClientServiceThread extends Thread{
 			//Formato -> 	GET / HTTP/1.1
 			//				POST /form_submited.html HTTP/1.1
 			String request = in.readLine();
-			System.out.println("request: "+request);
 
 			boolean isPost = request.startsWith("POST");
 			int contentLength = 0;
@@ -82,6 +81,7 @@ class ClientServiceThread extends Thread{
 			}
 			//body -> user='user'&pass='pass'
 
+			String req = request.substring(4, request.length()-9).trim();
 			if (request.length()<14 || !(request.endsWith("HTTP/1.0") || request.endsWith("HTTP/1.1"))) {
 				//Bad request
 				errorReport(pout, connection, "400", "Bad Request",
@@ -89,8 +89,6 @@ class ClientServiceThread extends Thread{
 							"this server could not understand.");
 			}
 			else if(request.startsWith("GET")) {
-				String req = request.substring(4, request.length()-9).trim();
-
 				if (req.indexOf("secret")!=-1 ) {
 					//403
 					errorReport(pout, connection, "403", "Forbidden",
@@ -99,7 +97,7 @@ class ClientServiceThread extends Thread{
 				else {
 					String path = wwwhome + req;
 					File f = new File(path);
-
+					System.out.println("f: "+f);
 					if (path.indexOf("home_old") != -1) {
 						//Redirige a home.html
 						pout.print("HTTP/1.0 302 Moved Permanently\r\n" +
@@ -111,10 +109,13 @@ class ClientServiceThread extends Thread{
 					else {
 						if (f.isDirectory()) {
 							//Pagina inicial al haber solamente "/"
-							path = path + "home.html";
+							path = path + "home";
+							System.out.println("path "+path);
 							f = new File(path);
 						}
 						try {
+							path = path + ".html";
+							f = new File(path);
 							//Envía archivo html
 							InputStream file = new FileInputStream(f);
 							pout.print("HTTP/1.0 200 OK\r\n" +
@@ -132,8 +133,38 @@ class ClientServiceThread extends Thread{
 				}
 			}
 			else if(request.startsWith("POST")){
-				System.out.println("paso post");
+				String path = wwwhome + req + ".html",
+					user = "root",
+					pass = "rdc2017";
+				System.out.println("path "+path);
+
+				File f = new File(path);
+				File badPass = new File(wwwhome + "/fail.html");
+
+				try {
+					//Envía archivo html
+					InputStream bad = new FileInputStream(badPass);
+					InputStream file = new FileInputStream(f);
+					pout.print("HTTP/1.0 200 OK\r\n" +
+							   "Content-Type: text/html\r\n" +
+							   "Date: " + new Date() + "\r\n" +
+							   "Server: FileServer 1.0\r\n\r\n");
+					if(body.toString().equals("user="+user+"&pass="+pass)){
+						sendFile(file, out); //Envía archivo
+					}
+					else{
+						sendFile(bad,out);
+					}
+
+					log(connection, "200 OK");
+				} catch (FileNotFoundException e) {
+					//404 no se encuentra
+					errorReport(pout, connection, "404", "Not Found",
+								"The requested URL was not found on this server.");
+				}
 			}
+
+			//Se cierran debidamente el socket y PrintStream
 			pout.close();
 			connection.close();
 		} catch (IOException e) { System.err.println(e); }
