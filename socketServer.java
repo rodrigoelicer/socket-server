@@ -49,7 +49,7 @@ class ClientServiceThread extends Thread {
 
 	public void run() {
 		try{
-			System.out.println("Cliente en línea");
+			System.out.println("Cliente en línea, ID: "+clientID);
 			BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
 			OutputStream out = new BufferedOutputStream(connection.getOutputStream());
 			PrintStream pout = new PrintStream(out);
@@ -72,7 +72,7 @@ class ClientServiceThread extends Thread {
 					errorReport(pout, connection, "403", "Forbidden",
 								"You don't have permission to access the requested URL.");
 				} else {
-					String path = wwwhome + "/" + req;
+					String path = wwwhome + req;
 					File f = new File(path);
 					System.out.println("path "+path);
 					System.out.println("f "+f);
