@@ -20,7 +20,7 @@ class Server{
 		System.out.println("FileServer accepting connections on port " + port);
 
 		int id=0;
-        while (true) {
+        while (true){
 			//Por cada conexion, se crea un thread distinto
             Socket connection = null;
 			try{
@@ -35,7 +35,7 @@ class Server{
     }
 }
 
-class ClientServiceThread extends Thread {
+class ClientServiceThread extends Thread{
 	Socket connection;
 	int clientID = -1;
 	int port;
@@ -48,9 +48,9 @@ class ClientServiceThread extends Thread {
 		wwwhome = w;
 	}
 
-	public void run() {
+	public void run(){
 		try{
-			System.out.println("Cliente en línea, ID: "+clientID);
+			System.out.println("Conexion nueva, ID: "+clientID);
 			BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
 			OutputStream out = new BufferedOutputStream(connection.getOutputStream());
 			PrintStream pout = new PrintStream(out);
@@ -58,61 +58,84 @@ class ClientServiceThread extends Thread {
 			//Formato -> 	GET / HTTP/1.1
 			//				POST /form_submited.html HTTP/1.1
 			String request = in.readLine();
+			System.out.println("request: "+request);
 
-			// parse the line
-			if (!request.startsWith("GET") || request.length()<14 ||
-				!(request.endsWith("HTTP/1.0") || request.endsWith("HTTP/1.1"))) {
-				// bad request
+			boolean isPost = request.startsWith("POST");
+			int contentLength = 0;
+			String line;
+			while (!(line = in.readLine()).equals("")) {
+		        if (isPost) {
+		            final String contentHeader = "Content-Length: ";
+		            if (line.startsWith(contentHeader)) {
+		                contentLength = Integer.parseInt(line.substring(contentHeader.length()));
+		            }
+		        }
+		    }
+
+			StringBuilder body = new StringBuilder();
+			if (isPost) {
+				int c = 0;
+				for (int i = 0; i < contentLength; i++) {
+				   c = in.read();
+				   body.append((char) c);
+				}
+			}
+			//body -> user='user'&pass='pass'
+
+			if (request.length()<14 || !(request.endsWith("HTTP/1.0") || request.endsWith("HTTP/1.1"))) {
+				//Bad request
 				errorReport(pout, connection, "400", "Bad Request",
 							"Your browser sent a request that " +
 							"this server could not understand.");
-			} else {
+			}
+			else if(request.startsWith("GET")) {
 				String req = request.substring(4, request.length()-9).trim();
 
 				if (req.indexOf("secret")!=-1 ) {
-					// evil hacker trying to read non-wwwhome or secret file
+					//403
 					errorReport(pout, connection, "403", "Forbidden",
 								"You don't have permission to access the requested URL.");
-				} else {
+				}
+				else {
 					String path = wwwhome + req;
 					File f = new File(path);
-					System.out.println("path "+path);
-					System.out.println("f "+f);
 
 					if (path.indexOf("home_old") != -1) {
-						// redirect browser if referring to directory without final '/'
+						//Redirige a home.html
 						pout.print("HTTP/1.0 302 Moved Permanently\r\n" +
 								   "Location: http://" +
 								   connection.getLocalAddress().getHostAddress() + ":" +
 								   connection.getLocalPort() + "/\r\n\r\n");
 						log(connection, "301 Moved Permanently");
-					} else {
+					}
+					else {
 						if (f.isDirectory()) {
-							// if directory, implicitly add 'home.html'
+							//Pagina inicial al haber solamente "/"
 							path = path + "home.html";
 							f = new File(path);
 						}
 						try {
-							// send file
+							//Envía archivo html
 							InputStream file = new FileInputStream(f);
 							pout.print("HTTP/1.0 200 OK\r\n" +
-									   "Content-Type: " + guessContentType(path) + "\r\n" +
+									   "Content-Type: text/html\r\n" +
 									   "Date: " + new Date() + "\r\n" +
 									   "Server: FileServer 1.0\r\n\r\n");
-							sendFile(file, out); // send raw file
+							sendFile(file, out); //Envía archivo
 							log(connection, "200 OK");
 						} catch (FileNotFoundException e) {
-							// file not found
+							//404 no se encuentra
 							errorReport(pout, connection, "404", "Not Found",
 										"The requested URL was not found on this server.");
 						}
 					}
-
 				}
+			}
+			else if(request.startsWith("POST")){
+				System.out.println("paso post");
 			}
 			pout.close();
 			connection.close();
-			//out.flush();
 		} catch (IOException e) { System.err.println(e); }
 	}
 
@@ -122,8 +145,7 @@ class ClientServiceThread extends Thread {
     }
 
     private static void errorReport(PrintStream pout, Socket connection,
-                                    String code, String title, String msg)
-    {
+	String code, String title, String msg){
         pout.print("HTTP/1.0 " + code + " " + title + "\r\n" +
                    "\r\n" +
                    "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\r\n" +
@@ -137,24 +159,7 @@ class ClientServiceThread extends Thread {
         log(connection, code + " " + title);
     }
 
-    private static String guessContentType(String path)
-    {
-        if (path.endsWith(".html") || path.endsWith(".htm"))
-            return "text/html";
-        else if (path.endsWith(".txt") || path.endsWith(".java"))
-            return "text/plain";
-        else if (path.endsWith(".gif"))
-            return "image/gif";
-        else if (path.endsWith(".class"))
-            return "application/octet-stream";
-        else if (path.endsWith(".jpg") || path.endsWith(".jpeg"))
-            return "image/jpeg";
-        else
-            return "text/html";
-    }
-
-    private static void sendFile(InputStream file, OutputStream out)
-    {
+    private static void sendFile(InputStream file, OutputStream out){
         try {
             byte[] buffer = new byte[1000];
             while (file.available()>0)
