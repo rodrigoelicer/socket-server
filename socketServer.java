@@ -6,7 +6,7 @@ class Server{
     public static void main(String[] args){
 
         int port = 8080;
-        String wwwhome = System.getProperty("user.dir") + "/template";
+        String wwwhome = System.getProperty("user.dir");
 
         ServerSocket socket = null;
         try {
@@ -64,6 +64,45 @@ class ClientServiceThread extends Thread{
 			String req = request.substring(4, request.length()-9).trim();
 			req = req.replace("?","");
 
+			//--------------------------------
+			//BONUS
+			//--------------------------------
+			//Se crea log.txt
+			File log = new File(wwwhome + "/log.txt");
+			log.createNewFile();
+
+			BufferedWriter bw = null;
+			FileWriter fw = null;
+
+			try {
+				InetAddress ip = connection.getInetAddress();
+				String url = connection.getLocalAddress().getHostName(),
+						port = Integer.toString(connection.getLocalPort()),
+						url_final;
+				url_final = url+":"+port+req;
+
+				String content = "<"+ip+"> <"+url_final+"> <"+new Date()+">\n";
+
+				fw = new FileWriter("log.txt",true);
+				bw = new BufferedWriter(fw);
+				bw.write(content);
+
+				System.out.println("Done");
+			} catch (IOException e) {
+				e.printStackTrace();
+			} finally {
+				try {
+					if (bw != null)
+						bw.close();
+					if (fw != null)
+						fw.close();
+				} catch (IOException ex) {
+					ex.printStackTrace();
+				}
+			}
+
+			//Se agrega /template a la direccion del proyecto para redirigir bien a los .html
+			wwwhome = wwwhome + "/template";
 			//--------------------------------
 			//En "body" almacena la data pasada en POST
 			//--------------------------------
