@@ -46,7 +46,7 @@ class Server{
                         errorReport(pout, connection, "403", "Forbidden",
                                     "You don't have permission to access the requested URL.");
                     } else {
-                        String path = wwwhome + "/" + req;
+                        String path = wwwhome + req;
                         File f = new File(path);
 						System.out.println("path "+path);
 						System.out.println("f "+f);
