@@ -3,11 +3,10 @@ import java.io.*;
 import java.util.*;
 
 class Server{
-
     public static void main(String[] args){
 
         int port = 8080;
-        String wwwhome = System.getProperty("user.dir");
+        String wwwhome = System.getProperty("user.dir") + "/template";
 
         ServerSocket socket = null;
         try {
@@ -17,7 +16,7 @@ class Server{
             System.err.println("Could not start server: " + e);
             System.exit(-1);
         }
-		System.out.println("FileServer accepting connections on port " + port);
+		System.out.println("Server accepting connections on port " + port);
 
 		int id=0;
         while (true){
@@ -35,6 +34,9 @@ class Server{
     }
 }
 
+//--------------------------------
+//Se crean los distintos thread por cada conexion nueva
+//--------------------------------
 class ClientServiceThread extends Thread{
 	Socket connection;
 	int clientID = -1;
@@ -55,10 +57,17 @@ class ClientServiceThread extends Thread{
 			OutputStream out = new BufferedOutputStream(connection.getOutputStream());
 			PrintStream pout = new PrintStream(out);
 
-			//Formato -> 	GET / HTTP/1.1
-			//				POST /form_submited.html HTTP/1.1
+			//Formato -> 	GET /home HTTP/1.1
+			//				POST /login HTTP/1.1
 			String request = in.readLine();
+			//Formato ->	/login
+			String req = request.substring(4, request.length()-9).trim();
+			req = req.replace("?","");
 
+			//--------------------------------
+			//En "body" almacena la data pasada en POST
+			//--------------------------------
+			StringBuilder body = new StringBuilder();
 			boolean isPost = request.startsWith("POST");
 			int contentLength = 0;
 			String line;
@@ -70,8 +79,6 @@ class ClientServiceThread extends Thread{
 		            }
 		        }
 		    }
-
-			StringBuilder body = new StringBuilder();
 			if (isPost) {
 				int c = 0;
 				for (int i = 0; i < contentLength; i++) {
@@ -81,7 +88,10 @@ class ClientServiceThread extends Thread{
 			}
 			//body -> user='user'&pass='pass'
 
-			String req = request.substring(4, request.length()-9).trim();
+			//--------------------------------
+			//Maneja las solicitudes tipo GET
+			//Maneja 403,301, 200 y 404
+			//--------------------------------
 			if(request.startsWith("GET")) {
 				String path1 = wwwhome + "/verified";
 				boolean isCheck = new File(path1).exists();
@@ -93,20 +103,18 @@ class ClientServiceThread extends Thread{
 				else {
 					String path = wwwhome + req;
 					File f = new File(path);
-					System.out.println("f: "+f);
 					if (path.indexOf("home_old") != -1) {
 						//Redirige a home.html
-						pout.print("HTTP/1.0 302 Moved Permanently\r\n" +
+						pout.print("HTTP/1.0 301 Moved Permanently\r\n" +
 								   "Location: http://" +
 								   connection.getLocalAddress().getHostAddress() + ":" +
 								   connection.getLocalPort() + "/\r\n\r\n");
-						log(connection, "301 Moved Permanently");
+						log("301 Moved Permanently");
 					}
 					else {
 						if (f.isDirectory()) {
 							//Pagina inicial al haber solamente "/"
 							path = path + "home";
-							System.out.println("path "+path);
 							f = new File(path);
 						}
 						try {
@@ -117,9 +125,9 @@ class ClientServiceThread extends Thread{
 							pout.print("HTTP/1.0 200 OK\r\n" +
 									   "Content-Type: text/html\r\n" +
 									   "Date: " + new Date() + "\r\n" +
-									   "Server: FileServer 1.0\r\n\r\n");
+									   "Server: Server 1.0\r\n\r\n");
 							sendFile(file, out); //Envía archivo
-							log(connection, "200 OK");
+							log("200 OK");
 						} catch (FileNotFoundException e) {
 							//404 no se encuentra
 							errorReport(pout, connection, "404", "Not Found",
@@ -128,11 +136,14 @@ class ClientServiceThread extends Thread{
 					}
 				}
 			}
+			//--------------------------------
+			//Maneja las solicitudes tipo POST
+			//Maneja 200 y 404
+			//--------------------------------
 			else if(request.startsWith("POST")){
 				String path = wwwhome + req + ".html",
 					user = "root",
 					pass = "rdc2017";
-				System.out.println("path "+path);
 
 				File f = new File(path);
 				File badPass = new File(wwwhome + "/fail.html");
@@ -144,7 +155,7 @@ class ClientServiceThread extends Thread{
 					pout.print("HTTP/1.0 200 OK\r\n" +
 							   "Content-Type: text/html\r\n" +
 							   "Date: " + new Date() + "\r\n" +
-							   "Server: FileServer 1.0\r\n\r\n");
+							   "Server: Server 1.0\r\n\r\n");
 					if(body.toString().equals("user="+user+"&pass="+pass)){
 						File verified = new File(wwwhome + "/verified");
 						verified.createNewFile();
@@ -154,7 +165,7 @@ class ClientServiceThread extends Thread{
 						sendFile(bad,out);
 					}
 
-					log(connection, "200 OK");
+					log("200 OK");
 				} catch (FileNotFoundException e) {
 					//404 no se encuentra
 					errorReport(pout, connection, "404", "Not Found",
@@ -168,11 +179,13 @@ class ClientServiceThread extends Thread{
 		} catch (IOException e) { System.err.println(e); }
 	}
 
-	private static void log(Socket connection, String msg){
-        System.err.println(new Date() + " [" + connection.getInetAddress().getHostAddress() +
-            ":" + connection.getPort() + "] " + msg);
+	private static void log(String msg){
+        System.err.println(msg);
     }
 
+	//--------------------------------
+	//genera html para errores 404 y 403
+	//--------------------------------
     private static void errorReport(PrintStream pout, Socket connection,
 	String code, String title, String msg){
         pout.print("HTTP/1.0 " + code + " " + title + "\r\n" +
@@ -181,13 +194,16 @@ class ClientServiceThread extends Thread{
                    "<TITLE>" + code + " " + title + "</TITLE>\r\n" +
                    "</HEAD><BODY>\r\n" +
                    "<H1>" + title + "</H1>\r\n" + msg + "<P>\r\n" +
-                   "<HR><ADDRESS>FileServer 1.0 at " +
+                   "<HR><ADDRESS>Server 1.0 at " +
                    connection.getLocalAddress().getHostName() +
                    " Port " + connection.getLocalPort() + "</ADDRESS>\r\n" +
                    "</BODY></HTML>\r\n");
-        log(connection, code + " " + title);
+        log(code + " " + title);
     }
 
+	//--------------------------------
+	//Funcion para enviar archivos
+	//--------------------------------
     private static void sendFile(InputStream file, OutputStream out){
         try {
             byte[] buffer = new byte[1000];
