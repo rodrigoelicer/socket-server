@@ -82,14 +82,10 @@ class ClientServiceThread extends Thread{
 			//body -> user='user'&pass='pass'
 
 			String req = request.substring(4, request.length()-9).trim();
-			if (request.length()<14 || !(request.endsWith("HTTP/1.0") || request.endsWith("HTTP/1.1"))) {
-				//Bad request
-				errorReport(pout, connection, "400", "Bad Request",
-							"Your browser sent a request that " +
-							"this server could not understand.");
-			}
-			else if(request.startsWith("GET")) {
-				if (req.indexOf("secret")!=-1 ) {
+			if(request.startsWith("GET")) {
+				String path1 = wwwhome + "/verified";
+				boolean isCheck = new File(path1).exists();
+				if (req.indexOf("secret")!=-1 && !isCheck) {
 					//403
 					errorReport(pout, connection, "403", "Forbidden",
 								"You don't have permission to access the requested URL.");
@@ -150,6 +146,8 @@ class ClientServiceThread extends Thread{
 							   "Date: " + new Date() + "\r\n" +
 							   "Server: FileServer 1.0\r\n\r\n");
 					if(body.toString().equals("user="+user+"&pass="+pass)){
+						File verified = new File(wwwhome + "/verified");
+						verified.createNewFile();
 						sendFile(file, out); //Envía archivo
 					}
 					else{
