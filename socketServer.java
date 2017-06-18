@@ -39,8 +39,6 @@ class ClientServiceThread extends Thread {
 	int clientID = -1;
 	int port;
 	String wwwhome;
-	public String mensajeServidor; //Mensajes entrantes (recibidos) en el servidor
-	public DataOutputStream salidaServidor, salidaCliente; //Flujo de datos de salida
 
 	ClientServiceThread(Socket s, int i, int p, String w) {
 		connection = s;
