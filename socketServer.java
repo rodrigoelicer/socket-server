@@ -6,7 +6,7 @@ class Server{
     public static void main(String[] args){
 
         int port = 8080;
-        String wwwhome = System.getProperty("user.dir");
+        String dir = System.getProperty("user.dir");
 
         ServerSocket socket = null;
         try {
@@ -16,7 +16,7 @@ class Server{
             System.err.println("Could not start server: " + e);
             System.exit(-1);
         }
-		System.out.println("Server accepting connections on port " + port);
+		System.out.println("Server accepting connections on port " + port + "\n");
 
 		int id=0;
         while (true){
@@ -24,7 +24,7 @@ class Server{
             Socket connection = null;
 			try{
 				connection = socket.accept();
-				ClientServiceThread cliThread = new ClientServiceThread(connection, id++, port, wwwhome);
+				ClientServiceThread cliThread = new ClientServiceThread(connection, id++, port, dir);
 	            cliThread.start();
 			}
 			catch (Exception e) {
@@ -41,13 +41,13 @@ class ClientServiceThread extends Thread{
 	Socket connection;
 	int clientID = -1;
 	int port;
-	String wwwhome;
+	String dir;
 
 	ClientServiceThread(Socket s, int i, int p, String w) {
 		connection = s;
 		clientID = i;
 		port = p;
-		wwwhome = w;
+		dir = w;
 	}
 
 	public void run(){
@@ -68,7 +68,7 @@ class ClientServiceThread extends Thread{
 			//BONUS
 			//--------------------------------
 			//Se crea log.txt
-			File log = new File(wwwhome + "/log.txt");
+			File log = new File(dir + "/log.txt");
 			log.createNewFile();
 
 			BufferedWriter bw = null;
@@ -87,7 +87,6 @@ class ClientServiceThread extends Thread{
 				bw = new BufferedWriter(fw);
 				bw.write(content);
 
-				System.out.println("Done");
 			} catch (IOException e) {
 				e.printStackTrace();
 			} finally {
@@ -102,7 +101,7 @@ class ClientServiceThread extends Thread{
 			}
 
 			//Se agrega /template a la direccion del proyecto para redirigir bien a los .html
-			wwwhome = wwwhome + "/template";
+			dir = dir + "/template";
 			//--------------------------------
 			//En "body" almacena la data pasada en POST
 			//--------------------------------
@@ -132,7 +131,7 @@ class ClientServiceThread extends Thread{
 			//Maneja 403,301, 200 y 404
 			//--------------------------------
 			if(request.startsWith("GET")) {
-				String path1 = wwwhome + "/verified";
+				String path1 = dir + "/verified";
 				boolean isCheck = new File(path1).exists();
 				if (req.indexOf("secret")!=-1 && !isCheck) {
 					//403
@@ -140,7 +139,7 @@ class ClientServiceThread extends Thread{
 								"You don't have permission to access the requested URL.");
 				}
 				else {
-					String path = wwwhome + req;
+					String path = dir + req;
 					File f = new File(path);
 					if (path.indexOf("home_old") != -1) {
 						//Redirige a home.html
@@ -180,12 +179,12 @@ class ClientServiceThread extends Thread{
 			//Maneja 200 y 404
 			//--------------------------------
 			else if(request.startsWith("POST")){
-				String path = wwwhome + req + ".html",
+				String path = dir + req + ".html",
 					user = "root",
 					pass = "rdc2017";
 
 				File f = new File(path);
-				File badPass = new File(wwwhome + "/fail.html");
+				File badPass = new File(dir + "/fail.html");
 
 				try {
 					//Envía archivo html
@@ -196,7 +195,7 @@ class ClientServiceThread extends Thread{
 							   "Date: " + new Date() + "\r\n" +
 							   "Server: Server 1.0\r\n\r\n");
 					if(body.toString().equals("user="+user+"&pass="+pass)){
-						File verified = new File(wwwhome + "/verified");
+						File verified = new File(dir + "/verified");
 						verified.createNewFile();
 						sendFile(file, out); //Envía archivo
 					}
@@ -219,7 +218,7 @@ class ClientServiceThread extends Thread{
 	}
 
 	private static void log(String msg){
-        System.err.println(msg);
+        System.err.println("Status Code: "+ msg + "\n");
     }
 
 	//--------------------------------
